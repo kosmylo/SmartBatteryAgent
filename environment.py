@@ -26,7 +26,16 @@ class Environment :
 		self.current_state = None
 		self.episode_number = 0
 		self.time_step = 0
+		self.action_space = Environment.ActionSpace(Environment.env_options.actions)
 
+	class ActionSpace :
+
+		def __init__(self, actions) :
+			self.n = len(actions)
+			self.actions = actions
+
+		def sample(self) :
+			return self.actions.index(r.choice(self.actions))
 
 	def reset(self):
 		initialState = self.getState(0, Environment.env_options.E_init)
@@ -56,6 +65,7 @@ class Environment :
 		return initialState
 
 	def step(self, action):
+		assert(action != None)
 		return self.get_next_state(self.episode_number, self.time_step, self.current_state, action)
 
 	def get_next_state(self, episode_number, time_step, state_k, action_k):
@@ -67,10 +77,10 @@ class Environment :
 
 		if action_k >= 0:
 			P_charge, P_discharge = action_k, 0.0
-	    	else:
-	        	P_charge, P_discharge = 0.0, action_k
-	        E_next = current_energy + self.eta * P_charge + P_discharge
-	        P_grid = current_netload + P_charge + P_discharge
+		else:
+			P_charge, P_discharge = 0.0, action_k
+		E_next = current_energy + self.eta * P_charge + P_discharge
+		P_grid = current_netload + P_charge + P_discharge
 		is_valid = (P_grid > 0)
 		reward  = -P_grid * self.get_price(time_step)
 
@@ -105,6 +115,9 @@ class Environment :
 		return self.df_load[time_step][episode_number]
 
 if __name__ == '__main__' :
+	'''
+		code for testing the environment class
+	'''
 	environment = Environment()
 	environment.reset()
 	print environment.step(Environment.env_options.actions[0])
