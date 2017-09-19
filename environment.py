@@ -24,7 +24,7 @@ class Environment :
 		self.df_load = pd.read_csv(Environment.env_options.load_data)
 		self.df_load = self.df_load[self.start : self.start + self.day_chunk]
 		self.current_state = None
-		self.episode_number = 0
+		self.day_number = 0
 		self.time_step = 0
 		self.action_space = Environment.ActionSpace(Environment.env_options.actions)
 
@@ -51,13 +51,13 @@ class Environment :
 		sample_state = [solar_sample, load_sample, energy_sample, price_sample, time_step]
 		return sample_state
 
-	def getState(self, episode_number, E_init):
+	def getState(self, day_number, E_init):
 		'''
-			Set's the initialState (0th hour) for episode_number.
-			episode_number
+			Set's the initialState (0th hour) for day_number.
+			day_number
 		'''
-		solar = float(self.df_solar[self.get_key(0)][episode_number])
-		load = float(self.df_load[self.get_key(0)][episode_number])
+		solar = float(self.df_solar[self.get_key(0)][day_number])
+		load = float(self.df_load[self.get_key(0)][day_number])
 		energy_level = E_init
 		price = self.get_price(0)
 
@@ -67,12 +67,11 @@ class Environment :
 	def step(self, action):
 		assert(action != None)
 		action = Environment.env_options.actions[action]
-		next_state = self.get_next_state(self.episode_number, self.time_step, self.current_state, action)
+		next_state = self.get_next_state(self.day_number, self.time_step, self.current_state, action)
 		self.time_step += 1
-		self.episode_number += 1
 		return next_state
 
-	def get_next_state(self, episode_number, time_step, state_k, action_k):
+	def get_next_state(self, day_number, time_step, state_k, action_k):
 
 		current_load = state_k[0]
 		curent_solar = state_k[1]
@@ -92,7 +91,7 @@ class Environment :
 			reward = -1000
 			next_state = None
 		else :
-			next_state = [self.get_load(episode_number, time_step+1), self.get_solar(episode_number, time_step+1), E_next, self.get_price(time_step+1), time_step+1]
+			next_state = [self.get_load(day_number, time_step+1), self.get_solar(day_number, time_step+1), E_next, self.get_price(time_step+1), time_step+1]
 		return next_state, reward, (not is_valid), 'info is not supported'
 
 	def get_price(self, time_step):
@@ -102,21 +101,21 @@ class Environment :
 		time_step = str(time_step)
 		return time_step + ':00'
 
-	def get_solar(self, episode_number, time_step):
+	def get_solar(self, day_number, time_step):
 		if time_step > 23 :
-			episode_number = episode_number + 1
+			day_number = day_number + 1
 			time_step %= 24
-		episode_number = episode_number % self.day_chunk
+		day_number = day_number % self.day_chunk
 		time_step = self.get_key(time_step)
-		return self.df_solar[time_step][episode_number]
+		return self.df_solar[time_step][day_number]
 
-	def get_load(self, episode_number, time_step):
+	def get_load(self, day_number, time_step):
 		if time_step > 23 :
-			episode_number = episode_number + 1
+			day_number = day_number + 1
 			time_step %= 24
-		episode_number = episode_number % self.day_chunk
+		day_number = day_number % self.day_chunk
 		time_step = self.get_key(time_step)
-		return self.df_load[time_step][episode_number]
+		return self.df_load[time_step][day_number]
 
 if __name__ == '__main__' :
 	'''
