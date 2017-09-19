@@ -67,7 +67,10 @@ class Environment :
 	def step(self, action):
 		assert(action != None)
 		action = Environment.env_options.actions[action]
-		return self.get_next_state(self.episode_number, self.time_step, self.current_state, action)
+		next_state = self.get_next_state(self.episode_number, self.time_step, self.current_state, action)
+		self.time_step += 1
+		self.episode_number += 1
+		return next_state
 
 	def get_next_state(self, episode_number, time_step, state_k, action_k):
 
