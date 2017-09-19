@@ -85,19 +85,38 @@ class Model:
           model = SGDRegressor(feature_transformer.dimensions)
           self.models.append(model)
 
-    def predict(self, s):
+    def predict(self, s, legal_actions = None):
         X = self.feature_transformer.transform(np.atleast_2d(s))
-        return np.array([m.predict(X)[0] for m in self.models])
+        return np.array([m.predict(X)[0] for m in self.models]) if legal_actions == None \
+               else np.array([m.predict(X)[0] for (i, m) in enumerate(self.models) if i in legal_actions])
 
     def update(self, s, a, G):
         X = self.feature_transformer.transform(np.atleast_2d(s))
         self.models[a].partial_fit(X, [G])
 
+    def getLegalActions(self, currentState):
+        '''
+        Calculate and return allowable action set
+        Output: List of indices of allowable actions
+        '''
+        energy_level = currentState[2]
+        lower_bound = max(env_options.E_min - energy_level, -env_options.P_cap)
+        upper_bound = min(env_options.E_max - energy_level, env_options.P_cap)
+
+        max_bin = int(np.digitize(upper_bound, env_options.actions, right=True))
+        min_bin = int(np.digitize(lower_bound, env_options.actions, right=True))
+
+        legal_actions = []
+        for k in range(min_bin, max_bin):
+            legal_actions.append(k)
+        return legal_actions
+
     def sample_action(self, s, eps):
         if np.random.random() < eps:
             return self.env.action_space.sample()
         else:
-            return np.argmax(self.predict(s))
+            return np.argmax(self.predict(s, self.getLegalActions(self.env.current_state))) if env_options.use_legal_actions else np.argmax(self.predict(s))
+
 
 def play_one(env, model, eps, gamma):
     observation = env.reset()
@@ -126,6 +145,7 @@ def play_one(env, model, eps, gamma):
 
 
 
+env_options = getDefaultObject()
 
 def main():
     env = Environment()

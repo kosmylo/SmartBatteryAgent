@@ -3,7 +3,7 @@ import numpy as np
 class EnvironmentOptions :
 
 	def __init__(self, eta, gamma, start, day_chunk, total_years, price_scheme, look_ahead, E_cap, P_cap, E_init, epsilon, \
-				 actions, solar_data, load_data) :
+				 actions, solar_data, load_data, use_legal_actions) :
 		'''
 			options class from where environment get's all it's parameters.
 			can be custom created or a default veriosn can also be loaded.
@@ -24,6 +24,10 @@ class EnvironmentOptions :
 		self.look_ahead = look_ahead
 		self.solar_data = solar_data
 		self.load_data = load_data
+		self.use_legal_actions = use_legal_actions
+		self.E_max = E_cap
+		self.E_min = (1 - 0.8) * self.E_max
+		self.E_init = 0.3 * self.E_max
 
 
 
@@ -38,7 +42,7 @@ def getDefaultObject() :
 	'''
 	gamma = 0.99
 	eta = 0.9
-	day_chunk = 10
+	day_chunk = 30
 	total_years = 2000
 	E_cap = 6.0
 	P_cap = 3.0
@@ -51,5 +55,6 @@ def getDefaultObject() :
 	load_data = './Data/load_data_peak6.csv'
 	start = 0
 	price_scheme = [.040,.040,.040,.040,.040,.040,.080,.080,.080,.080,.040,.040,.080,.080,.080,.040,.040,.120,.120,.040,.040,.040,.040,.040]
+	use_legal_actions = True
 	return EnvironmentOptions(eta, gamma, start, day_chunk, total_years, price_scheme, look_ahead, E_cap, P_cap, E_init, epsilon, \
-				 actions, solar_data, load_data) #please fill with default values from main class
+				 actions, solar_data, load_data, use_legal_actions)
