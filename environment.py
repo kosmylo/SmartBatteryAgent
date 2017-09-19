@@ -70,7 +70,7 @@ class Environment :
 		next_state = self.get_next_state(self.day_number, self.time_step, self.current_state, action)
 		self.time_step += 1
 		if self.time_step > 23 :
-			self.day_number = day_number + 1
+			self.day_number = self.day_number + 1
 			self.time_step %= 24
 		if self.day_number >= self.day_chunk :
 			self.day_number %= self.day_chunk
