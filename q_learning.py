@@ -61,7 +61,9 @@ class FeatureTransformer:
             ("rbf1", RBFSampler(gamma=0.05, n_components=1000)),
             ("rbf2", RBFSampler(gamma=1.0, n_components=1000)),
             ("rbf3", RBFSampler(gamma=0.5, n_components=1000)),
-            ("rbf4", RBFSampler(gamma=0.1, n_components=1000))
+            ("rbf4", RBFSampler(gamma=0.1, n_components=1000)),
+            ("rbf5", RBFSampler(gamma=0.6, n_components=1000)),
+            ("rbf6", RBFSampler(gamma=0.3, n_components=1000))
         ])
         feature_examples = featurizer.fit_transform(scaler.transform(observation_examples))
         self.dimensions = feature_examples.shape[1]
@@ -137,6 +139,7 @@ def main():
     costs = np.empty(N)
     for n in range(N):
         eps = 1.0/np.sqrt(n+1)
+        print 'episode number : ', n
         totalreward = play_one(env, model, eps, gamma)
         totalrewards[n] = totalreward
     if n % 100 == 0:
