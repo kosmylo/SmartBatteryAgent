@@ -104,6 +104,7 @@ def play_one(env, model, eps, gamma):
     done = False
     totalreward = 0
     iters = 0
+    number_of_hours_lasted = 0
     while not done and iters < 2000:
         # if we reach 2000, just quit, don't want this going forever
         # the 200 limit seems a bit early
@@ -120,7 +121,8 @@ def play_one(env, model, eps, gamma):
         if reward != -1000: # if we changed the reward to -200
           totalreward += reward
         iters += 1
-    return totalreward
+        number_of_hours_lasted += 1
+    return totalreward, number_of_hours_lasted
 
 
 
@@ -130,28 +132,28 @@ def main():
     ft = FeatureTransformer(env)
     model = Model(env, ft)
     gamma = 0.99
-    if 'monitor' in sys.argv:
-        filename = os.path.basename(__file__).split('.')[0]
-        monitor_dir = './' + filename + '_' + str(datetime.now())
-        env = wrappers.Monitor(env, monitor_dir)
-    N = 500
+    N = 1000
     totalrewards = np.empty(N)
+    number_of_hours_lasted_lst = np.empty(N)
     costs = np.empty(N)
     for n in range(N):
         eps = 1.0/np.sqrt(n+1)
         print 'episode number : ', n
-        totalreward = play_one(env, model, eps, gamma)
-        totalrewards[n] = totalreward
+        totalreward, number_of_hours_lasted = play_one(env, model, eps, gamma)
+        totalrewards[n], number_of_hours_lasted_lst[n] = totalreward, number_of_hours_lasted
     if n % 100 == 0:
         print("episode:", n, "total reward:", totalreward, "eps:", eps, "avg reward (last 100):", totalrewards[max(0, n-100):(n+1)].mean())
     print("avg reward for last 100 episodes:", totalrewards[-100:].mean())
+    print("avg number of hours lasted for last 100 episodes:", number_of_hours_lasted_lst[-100:].mean())
     print("total steps:", totalrewards.sum())
 
     plt.plot(totalrewards)
     plt.title("Rewards")
     plt.show()
 
-    plot_running_avg(totalrewards)
+    plt.plot(number_of_hours_lasted_lst)
+    plt.title("number of hours lasted")
+    plt.show()
 
 if __name__ == '__main__':
     main()
