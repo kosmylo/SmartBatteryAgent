@@ -44,7 +44,7 @@ class Environment :
 
 	def sample(self) :
 		solar_sample = np.random.uniform(low=0, high=2.5)
-		load_sample = np.random.uniform(low=-2.6, high=4.8)
+		load_sample = np.random.uniform(low=2.0, high=4.8)
 		energy_sample = np.random.uniform(low=1.7, high=6.0)
 		price_sample = np.random.uniform(low=0.0, high=0.12)
 		time_step = r.randint(0, 23)
