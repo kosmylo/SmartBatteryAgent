@@ -69,6 +69,9 @@ class Environment :
 		action = Environment.env_options.actions[action]
 		next_state = self.get_next_state(self.day_number, self.time_step, self.current_state, action)
 		self.time_step += 1
+		if self.time_step > 23 :
+			self.day_number = day_number + 1
+			self.time_step %= 24
 		return next_state
 
 	def get_next_state(self, day_number, time_step, state_k, action_k):
