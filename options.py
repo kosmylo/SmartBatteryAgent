@@ -55,6 +55,6 @@ def getDefaultObject() :
 	load_data = './Data/load_data_peak6.csv'
 	start = 0
 	price_scheme = [.040,.040,.040,.040,.040,.040,.080,.080,.080,.080,.040,.040,.080,.080,.080,.040,.040,.120,.120,.040,.040,.040,.040,.040]
-	use_legal_actions = not True
+	use_legal_actions = False
 	return EnvironmentOptions(eta, gamma, start, day_chunk, total_years, price_scheme, look_ahead, E_cap, P_cap, E_init, epsilon, \
 				 actions, solar_data, load_data, use_legal_actions)

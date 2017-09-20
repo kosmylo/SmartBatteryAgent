@@ -143,7 +143,45 @@ def play_one(env, model, eps, gamma):
         number_of_hours_lasted += 1
     return totalreward, number_of_hours_lasted
 
+def plot_savings(action_list, grid_list, solar_list, netload_list, load_list, energy_list):
+    plt.plot(action_list, label = 'action')
+    plt.plot(grid_list, label = 'grid load')
+    plt.plot(solar_list, label = 'solar power')
+    plt.plot(netload_list, label = 'net load')
+    plt.plot(load_list, label = 'household load')
+    plt.plot(energy_list, label = 'battery energy')
+    plt.xlabel('hours')
+    plt.show()
 
+def get_savings(env, model, plot = False):
+    savings = 0.0
+    done = False
+    observation = env.reset()
+    action_list = []
+    grid_list = []
+    solar_list = []
+    netload_list = []
+    load_list = []
+    energy_list = []
+    price_list = []
+    while env.day_number < (env.day_chunk - 1):
+        action = model.sample_action(observation, 0)
+        prev_observation = observation
+        observation, reward, done, info = env.step(action)
+        P_grid = env.get_p_grid(prev_observation, action)
+        action_list.append(env_options.actions[action])
+        grid_list.append(P_grid)
+        load_list.append(prev_observation[0])
+        solar_list.append(prev_observation[1])
+        energy_list.append(prev_observation[2])
+        netload_list.append(prev_observation[0] - prev_observation[1])
+        price_list.append(prev_observation[3])
+    agent_bill = sum([a * b for a, b in zip(price_list, grid_list)])
+    base_bill = sum([max(0, a * b) for a, b in zip(price_list, netload_list)])
+    savings = (base_bill - agent_bill)/base_bill
+    if(plot) :
+        return plot_savings(action_list, grid_list, solar_list, netload_list, load_list, energy_list)
+	return savings
 
 env_options = getDefaultObject()
 
@@ -155,12 +193,17 @@ def main():
     N = 1000
     totalrewards = np.empty(N)
     number_of_hours_lasted_lst = np.empty(N)
-    costs = np.empty(N)
+    savings = []
     for n in range(N):
         eps = 1.0/np.sqrt(n+1)
         print 'episode number : ', n
         totalreward, number_of_hours_lasted = play_one(env, model, eps, gamma)
         totalrewards[n], number_of_hours_lasted_lst[n] = totalreward, number_of_hours_lasted
+        if n > 0 and n % 5 == 0 :
+            savings.append(get_savings(env, model, False))
+        if n > 0 and n % 100 == 0 :
+            print 'plotting savings after ', n, ' iterations'
+            get_savings(env, model, True)
     if n % 100 == 0:
         print("episode:", n, "total reward:", totalreward, "eps:", eps, "avg reward (last 100):", totalrewards[max(0, n-100):(n+1)].mean())
     print("avg reward for last 100 episodes:", totalrewards[-100:].mean())
@@ -171,8 +214,9 @@ def main():
     plt.title("Rewards")
     plt.show()
 
-    plt.plot(number_of_hours_lasted_lst)
-    plt.title("number of hours lasted")
+    plt.plot(savings)
+    plt.ylabel("savings in %")
+    plt.xlabel("number of hours")
     plt.show()
 
 if __name__ == '__main__':

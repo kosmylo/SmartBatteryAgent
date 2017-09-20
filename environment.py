@@ -122,6 +122,16 @@ class Environment :
 		time_step = self.get_key(time_step)
 		return self.df_load[time_step][day_number]
 
+	def get_p_grid(self, state, action) :
+		assert(action != None)
+		action = Environment.env_options.actions[action]
+		if action >= 0:
+			P_charge, P_discharge = action, 0.0
+		else:
+			P_charge, P_discharge = 0.0, action
+		P_grid = state[0] - state[1] + P_charge + P_discharge
+		return P_grid
+
 if __name__ == '__main__' :
 	'''
 		code for testing the environment class
