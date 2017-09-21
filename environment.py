@@ -61,7 +61,7 @@ class Environment :
 		energy_level = E_init
 		price = self.get_price(0)
 
-		initialState =  [load, solar, energy_level, price, 0]
+		initialState =  [solar, load, energy_level, price, 0]
 		return initialState
 
 	def step(self, action):
@@ -74,14 +74,15 @@ class Environment :
 			self.time_step %= 24
 		if self.day_number >= self.day_chunk :
 			self.day_number %= self.day_chunk
+		self.current_state = next_state[0]
 		return next_state
 
 	def get_next_state(self, day_number, time_step, state_k, action_k):
 
-		current_load = state_k[0]
-		curent_solar = state_k[1]
+		current_solar = state_k[0]
+		current_load = state_k[1]
 		current_energy = state_k[2]
-		current_netload = current_load - curent_solar
+		current_netload = current_load - current_solar
 
 		if action_k >= 0:
 			P_charge, P_discharge = action_k, 0.0
@@ -129,7 +130,7 @@ class Environment :
 			P_charge, P_discharge = action, 0.0
 		else:
 			P_charge, P_discharge = 0.0, action
-		P_grid = state[0] - state[1] + P_charge + P_discharge
+		P_grid = state[1] - state[0] + P_charge + P_discharge
 		return P_grid
 
 if __name__ == '__main__' :

@@ -132,9 +132,11 @@ def play_one(env, model, eps, gamma):
         observation, reward, done, info = env.step(action)
         if done:
             reward = -1000
-        next = model.predict(observation)
-        assert(len(next.shape) == 1)
-        G = reward + gamma*np.max(next)
+            G = reward
+        else :
+            next = model.predict(observation)
+            assert(len(next.shape) == 1)
+            G = reward + gamma*np.max(next)
         model.update(prev_observation, action, G)
 
         if reward != -1000: # if we changed the reward to -200
@@ -147,9 +149,9 @@ def plot_savings(action_list, grid_list, solar_list, netload_list, load_list, en
     plt.plot(action_list, label = 'action')
     plt.plot(grid_list, label = 'grid load')
     plt.plot(solar_list, label = 'solar power')
-    plt.plot(netload_list, label = 'net load')
+    #plt.plot(netload_list, label = 'net load')
     plt.plot(load_list, label = 'household load')
-    plt.plot(energy_list, label = 'battery energy')
+    #plt.plot(energy_list, label = 'battery energy')
     plt.xlabel('hours')
     plt.show()
 
@@ -168,17 +170,20 @@ def get_savings(env, model, plot = False):
         action = model.sample_action(observation, 0)
         prev_observation = observation
         observation, reward, done, info = env.step(action)
+        if done :
+            break
         P_grid = env.get_p_grid(prev_observation, action)
         action_list.append(env_options.actions[action])
         grid_list.append(P_grid)
-        load_list.append(prev_observation[0])
-        solar_list.append(prev_observation[1])
+        load_list.append(prev_observation[1])
+        solar_list.append(prev_observation[0])
         energy_list.append(prev_observation[2])
-        netload_list.append(prev_observation[0] - prev_observation[1])
+        netload_list.append(prev_observation[1] - prev_observation[0])
         price_list.append(prev_observation[3])
     agent_bill = sum([a * b for a, b in zip(price_list, grid_list)])
     base_bill = sum([max(0, a * b) for a, b in zip(price_list, netload_list)])
     savings = (base_bill - agent_bill)/base_bill
+    print savings
     if(plot) :
         return plot_savings(action_list, grid_list, solar_list, netload_list, load_list, energy_list)
 	return savings
@@ -199,9 +204,9 @@ def main():
         print 'episode number : ', n
         totalreward, number_of_hours_lasted = play_one(env, model, eps, gamma)
         totalrewards[n], number_of_hours_lasted_lst[n] = totalreward, number_of_hours_lasted
-        if n > 0 and n % 5 == 0 :
+        if n > 0 and n % 50 == 0 :
             savings.append(get_savings(env, model, False))
-        if n > 0 and n % 100 == 0 :
+        if n > 0 and n % 10 == 0 :
             print 'plotting savings after ', n, ' iterations'
             get_savings(env, model, True)
     if n % 100 == 0:
