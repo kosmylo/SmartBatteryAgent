@@ -30,30 +30,29 @@ class SGDRegressor:
         self.lr = 0.1
 
     def partial_fit(self, X, Y):
-        self.w += self.lr*(Y - X.dot(self.w)).dot(X)
+        self.w += self.lr * (Y - X.dot(self.w)).dot(X)
 
     def predict(self, X):
         return X.dot(self.w)
-
 
 
 def plot_running_avg(totalrewards):
     N = len(totalrewards)
     running_avg = np.empty(N)
     for t in range(N):
-        running_avg[t] = totalrewards[max(0, t-100):(t+1)].mean()
+        running_avg[t] = totalrewards[max(0, t - 100):(t + 1)].mean()
     plt.plot(running_avg)
     plt.title("Running Average")
     plt.show()
 
-class FeatureTransformer:
 
+class FeatureTransformer:
     number_of_samples = 1000
 
     def __init__(self, env):
         scaler = StandardScaler()
         observation_examples = []
-        for i in range(FeatureTransformer.number_of_samples) :
+        for i in range(FeatureTransformer.number_of_samples):
             observation_examples.append(env.sample())
         scaler.fit(observation_examples)
 
@@ -82,13 +81,13 @@ class Model:
         self.models = []
         self.feature_transformer = feature_transformer
         for i in range(env.action_space.n):
-          model = SGDRegressor(feature_transformer.dimensions)
-          self.models.append(model)
+            model = SGDRegressor(feature_transformer.dimensions)
+            self.models.append(model)
 
-    def predict(self, s, legal_actions = None):
+    def predict(self, s, legal_actions=None):
         X = self.feature_transformer.transform(np.atleast_2d(s))
         return np.array([m.predict(X)[0] for m in self.models]) if legal_actions == None \
-               else np.array([m.predict(X)[0] for (i, m) in enumerate(self.models) if i in legal_actions])
+            else np.array([m.predict(X)[0] for (i, m) in enumerate(self.models) if i in legal_actions])
 
     def update(self, s, a, G):
         X = self.feature_transformer.transform(np.atleast_2d(s))
@@ -115,7 +114,8 @@ class Model:
         if np.random.random() < eps:
             return self.env.action_space.sample()
         else:
-            return np.argmax(self.predict(s, self.getLegalActions(self.env.current_state))) if env_options.use_legal_actions else np.argmax(self.predict(s))
+            return np.argmax(self.predict(s, self.getLegalActions(
+                self.env.current_state))) if env_options.use_legal_actions else np.argmax(self.predict(s))
 
 
 def play_one(env, model, eps, gamma):
@@ -133,29 +133,31 @@ def play_one(env, model, eps, gamma):
         if done:
             reward = -1000
             G = reward
-        else :
+        else:
             next = model.predict(observation)
-            assert(len(next.shape) == 1)
-            G = reward + gamma*np.max(next)
+            assert (len(next.shape) == 1)
+            G = reward + gamma * np.max(next)
         model.update(prev_observation, action, G)
 
-        if reward != -1000: # if we changed the reward to -200
-          totalreward += reward
+        if reward != -1000:  # if we changed the reward to -200
+            totalreward += reward
         iters += 1
         number_of_hours_lasted += 1
     return totalreward, number_of_hours_lasted
 
+
 def plot_savings(action_list, grid_list, solar_list, netload_list, load_list, energy_list):
-    plt.plot(action_list, label = 'action')
-    plt.plot(grid_list, label = 'grid load')
-    plt.plot(solar_list, label = 'solar power')
-    #plt.plot(netload_list, label = 'net load')
-    plt.plot(load_list, label = 'household load')
-    #plt.plot(energy_list, label = 'battery energy')
+    plt.plot(action_list, label='action')
+    plt.plot(grid_list, label='grid load')
+    plt.plot(solar_list, label='solar power')
+    # plt.plot(netload_list, label = 'net load')
+    plt.plot(load_list, label='household load')
+    # plt.plot(energy_list, label = 'battery energy')
     plt.xlabel('hours')
     plt.show()
 
-def get_savings(env, model, plot = False):
+
+def get_savings(env, model, plot=False):
     savings = 0.0
     done = False
     observation = env.reset()
@@ -170,7 +172,7 @@ def get_savings(env, model, plot = False):
         action = model.sample_action(observation, 0)
         prev_observation = observation
         observation, reward, done, info = env.step(action)
-        if done :
+        if done:
             break
         P_grid = env.get_p_grid(prev_observation, action)
         action_list.append(env_options.actions[action])
@@ -182,13 +184,15 @@ def get_savings(env, model, plot = False):
         price_list.append(prev_observation[3])
     agent_bill = sum([a * b for a, b in zip(price_list, grid_list)])
     base_bill = sum([max(0, a * b) for a, b in zip(price_list, netload_list)])
-    savings = (base_bill - agent_bill)/base_bill
+    savings = (base_bill - agent_bill) / base_bill
     print savings
-    if(plot) :
+    if (plot):
         return plot_savings(action_list, grid_list, solar_list, netload_list, load_list, energy_list)
-	return savings
+        return savings
+
 
 env_options = getDefaultObject()
+
 
 def main():
     env = Environment()
@@ -200,17 +204,18 @@ def main():
     number_of_hours_lasted_lst = np.empty(N)
     savings = []
     for n in range(N):
-        eps = 1.0/np.sqrt(n+1)
+        eps = 1.0 / np.sqrt(n + 1)
         print 'episode number : ', n
         totalreward, number_of_hours_lasted = play_one(env, model, eps, gamma)
         totalrewards[n], number_of_hours_lasted_lst[n] = totalreward, number_of_hours_lasted
-        if n > 0 and n % 50 == 0 :
+        if n > 0 and n % 50 == 0:
             savings.append(get_savings(env, model, False))
-        if n > 0 and n % 10 == 0 :
+        if n > 0 and n % 10 == 0:
             print 'plotting savings after ', n, ' iterations'
             get_savings(env, model, True)
     if n % 100 == 0:
-        print("episode:", n, "total reward:", totalreward, "eps:", eps, "avg reward (last 100):", totalrewards[max(0, n-100):(n+1)].mean())
+        print("episode:", n, "total reward:", totalreward, "eps:", eps, "avg reward (last 100):",
+              totalrewards[max(0, n - 100):(n + 1)].mean())
     print("avg reward for last 100 episodes:", totalrewards[-100:].mean())
     print("avg number of hours lasted for last 100 episodes:", number_of_hours_lasted_lst[-100:].mean())
     print("total steps:", totalrewards.sum())
@@ -223,6 +228,7 @@ def main():
     plt.ylabel("savings in %")
     plt.xlabel("number of hours")
     plt.show()
+
 
 if __name__ == '__main__':
     main()
