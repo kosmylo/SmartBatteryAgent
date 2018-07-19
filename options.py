@@ -41,16 +41,15 @@ def getDefaultObject():
         #price = [.040,.040,.080,.080,.120,.240,.120,.040,.040,.040,.040,.080,.120,.080,.120,.040,.040,.120,.120,.040,.040,.040,.040,.040]
         #price = [.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.080, .080,.120,.120,.040,.040,.040]
 	'''
-    gamma = 0.7
+    gamma = 0.6
     eta = 0.9
     day_chunk = 30
     total_years = 2000
-    E_cap = 6.0
-    P_cap = 3.0
-    E_init = 0.3 * E_cap
+    e_cap = 6.0
+    p_cap = 3.0
+    e_init = 0.3 * e_cap
     epsilon = 1.0
-    actions = np.arange(- P_cap, P_cap + 0.01, 0.5).tolist()
-    total_number_hours = 24
+    actions = np.arange(- p_cap, p_cap + 0.01, 0.5).tolist()
     look_ahead = 1
     solar_data = './Data/solar_double.csv'
     load_data = './Data/load_data_peak6.csv'
@@ -58,6 +57,6 @@ def getDefaultObject():
     price_scheme = [.040, .040, .040, .040, .040, .040, .080, .080, .080, .080, .040, .040, .080, .080, .080, .040,
                     .040, .120, .120, .040, .040, .040, .040, .040]
     use_legal_actions = True
-    return EnvironmentOptions(eta, gamma, start, day_chunk, total_years, price_scheme, look_ahead, E_cap, P_cap, E_init,
+    return EnvironmentOptions(eta, gamma, start, day_chunk, total_years, price_scheme, look_ahead, e_cap, p_cap, e_init,
                               epsilon, \
                               actions, solar_data, load_data, use_legal_actions)

@@ -73,6 +73,7 @@ class FeatureTransformer:
         self.scaler = scaler
 
     def transform(self, observations):
+        self.scaler.partial_fit(observations)
         scaled = self.scaler.transform(observations)
         return self.featurizer.transform(scaled) if self.featurizer else scaled
 
@@ -137,14 +138,13 @@ def play_one(env, model, eps, gamma):
     return avg_reward, number_of_hours_lasted
 
 
-def plot_savings(action_list, grid_list, solar_list, netload_list, load_list, energy_list, price_list):
+def plot_savings(action_list, grid_list, solar_list, load_list, energy_list, price_list):
     plt.plot(action_list, label='action')
-    plt.plot(grid_list, label='grid load')
+    plt.plot(grid_list, label='from grid')
     plt.plot(solar_list, label='solar power')
-    plt.plot(netload_list, label='net load')
-    plt.plot(load_list, label='household load')
-    plt.plot(energy_list, label='battery energy')
-    plt.plot(price_list, label='price list')
+    plt.plot(load_list, label='required load')
+    plt.plot(energy_list, label='stored energy')
+    plt.plot(price_list, label='unit price')
     plt.xlabel('hours')
     plt.legend(loc='best')
     plt.show()
@@ -158,12 +158,14 @@ def get_savings(env, model, plot=False):
     netload_list = [[] for _ in range(env.day_chunk)]
     load_list = [[] for _ in range(env.day_chunk)]
     energy_list = [[] for _ in range(env.day_chunk)]
+    number_of_hours_lasted = 0
     while env.day_number < (env.day_chunk - 1):
         action_index = model.sample_action(observation, 0)
         prev_observation = observation
         observation, reward, done, info = env.step(action_index)
         if done:
             break
+        number_of_hours_lasted += 1
         p_grid = env.get_p_grid(prev_observation, action_index)
         grid_list[env.day_number - 1].append(p_grid)
         action_list[env.day_number - 1].append(env.action_space.actions[action_index])
@@ -181,9 +183,9 @@ def get_savings(env, model, plot=False):
             max_savings = savings
             best_day = day
     if plot and len(action_list[best_day]) >= 24:
-        plot_savings(action_list[best_day], grid_list[best_day], solar_list[best_day], netload_list[best_day],
+        plot_savings(action_list[best_day], grid_list[best_day], solar_list[best_day],
                      load_list[best_day], energy_list[best_day], map(lambda x: x*50, env.price_scheme))
-    return max_savings
+    return max_savings, number_of_hours_lasted
 
 
 env_options = getDefaultObject()
@@ -203,7 +205,10 @@ def main():
         total_reward, number_of_hours_lasted = play_one(env, model, eps, env.env_options.gamma)
         total_rewards[n], number_of_hours_lasted_lst[n] = total_reward, number_of_hours_lasted
         if n > 0 and n % 50 == 0:
-            print('The best day for the model: ', savings.append(get_savings(env, model, True)))
+            current_saving, hours_lasted = get_savings(env, model, False)
+            print('The average saving per hour for the best day for the model: ', current_saving, ', and it lasted for',
+                  hours_lasted, 'hours')
+            savings.append(current_saving)
         if n > 0 and n % 50 == 0:
             print('plotting savings after ', n, ' iterations')
             get_savings(env, model, False)
@@ -219,8 +224,13 @@ def main():
     plt.show()
 
     plt.plot(savings)
-    plt.ylabel("savings in %")
-    plt.xlabel("number of hours")
+    plt.ylabel("savings per hour in %")
+    plt.xlabel("number of iterations")
+    plt.show()
+
+    plt.plot(number_of_hours_lasted_lst)
+    plt.ylabel("number of hours lasted per iteration")
+    plt.xlabel("number of iterations")
     plt.show()
 
 

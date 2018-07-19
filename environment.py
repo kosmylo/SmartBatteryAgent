@@ -77,6 +77,7 @@ class Environment:
         initial_state = self.get_initial_state(0, Environment.env_options.E_init)
         self.current_state = initial_state
         self.time_step = 0
+        self.day_number = 0
         return initial_state
 
     def sample(self):
