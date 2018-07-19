@@ -41,7 +41,7 @@ def getDefaultObject():
         #price = [.040,.040,.080,.080,.120,.240,.120,.040,.040,.040,.040,.080,.120,.080,.120,.040,.040,.120,.120,.040,.040,.040,.040,.040]
         #price = [.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.080, .080,.120,.120,.040,.040,.040]
 	'''
-    gamma = 0.99
+    gamma = 0.7
     eta = 0.9
     day_chunk = 30
     total_years = 2000
@@ -57,7 +57,7 @@ def getDefaultObject():
     start = 0
     price_scheme = [.040, .040, .040, .040, .040, .040, .080, .080, .080, .080, .040, .040, .080, .080, .080, .040,
                     .040, .120, .120, .040, .040, .040, .040, .040]
-    use_legal_actions = False
+    use_legal_actions = True
     return EnvironmentOptions(eta, gamma, start, day_chunk, total_years, price_scheme, look_ahead, E_cap, P_cap, E_init,
                               epsilon, \
                               actions, solar_data, load_data, use_legal_actions)

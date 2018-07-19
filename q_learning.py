@@ -1,27 +1,26 @@
 # https://deeplearningcourses.com/c/deep-reinforcement-learning-in-python
 # https://www.udemy.com/deep-reinforcement-learning-in-python
 from __future__ import division
+from __future__ import print_function
+from __future__ import print_function
+
+import random as r
+import time
+from copy import deepcopy
+
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.kernel_approximation import RBFSampler
+from sklearn.pipeline import FeatureUnion
+from sklearn.preprocessing import StandardScaler
+
+from environment import Environment
+from options import getDefaultObject
+
+
 # Note: you may need to update your version of future
 # sudo pip install -U future
 # Inspired by https://github.com/dennybritz/reinforcement-learning
-
-# Works best w/ multiply RBF kernels at var=0.05, 0.1, 0.5, 1.0
-
-
-from environment import Environment
-from options import EnvironmentOptions
-from options import getDefaultObject
-
-import gym
-import os
-import sys
-import numpy as np
-import matplotlib.pyplot as plt
-from gym import wrappers
-from datetime import datetime
-from sklearn.pipeline import FeatureUnion
-from sklearn.preprocessing import StandardScaler
-from sklearn.kernel_approximation import RBFSampler
 
 
 class SGDRegressor:
@@ -36,11 +35,11 @@ class SGDRegressor:
         return X.dot(self.w)
 
 
-def plot_running_avg(totalrewards):
-    N = len(totalrewards)
+def plot_running_avg(total_rewards):
+    N = len(total_rewards)
     running_avg = np.empty(N)
     for t in range(N):
-        running_avg[t] = totalrewards[max(0, t - 100):(t + 1)].mean()
+        running_avg[t] = total_rewards[max(0, t - 100):(t + 1)].mean()
     plt.plot(running_avg)
     plt.title("Running Average")
     plt.show()
@@ -48,6 +47,7 @@ def plot_running_avg(totalrewards):
 
 class FeatureTransformer:
     number_of_samples = 1000
+    use_rbf_sampling = False
 
     def __init__(self, env):
         scaler = StandardScaler()
@@ -55,23 +55,26 @@ class FeatureTransformer:
         for i in range(FeatureTransformer.number_of_samples):
             observation_examples.append(env.sample())
         scaler.fit(observation_examples)
-
-        featurizer = FeatureUnion([
-            ("rbf1", RBFSampler(gamma=0.05, n_components=1000)),
-            ("rbf2", RBFSampler(gamma=1.0, n_components=1000)),
-            ("rbf3", RBFSampler(gamma=0.5, n_components=1000)),
-            ("rbf4", RBFSampler(gamma=0.1, n_components=1000)),
-            ("rbf5", RBFSampler(gamma=0.6, n_components=1000)),
-            ("rbf6", RBFSampler(gamma=0.3, n_components=1000))
-        ])
-        feature_examples = featurizer.fit_transform(scaler.transform(observation_examples))
-        self.dimensions = feature_examples.shape[1]
+        if FeatureTransformer.use_rbf_sampling:
+            featurizer = FeatureUnion([
+                ("rbf1", RBFSampler(gamma=0.05, n_components=1000)),
+                ("rbf2", RBFSampler(gamma=1.0, n_components=1000)),
+                ("rbf3", RBFSampler(gamma=0.5, n_components=1000)),
+                ("rbf4", RBFSampler(gamma=0.1, n_components=1000)),
+                ("rbf5", RBFSampler(gamma=0.6, n_components=1000)),
+                ("rbf6", RBFSampler(gamma=0.3, n_components=1000))
+            ])
+            feature_examples = featurizer.fit_transform(scaler.transform(observation_examples))
+            self.dimensions = feature_examples.shape[1]
+            self.featurizer = featurizer
+        else:
+            self.dimensions = len(observation_examples[0])
+            self.featurizer = None
         self.scaler = scaler
-        self.featurizer = featurizer
 
     def transform(self, observations):
         scaled = self.scaler.transform(observations)
-        return self.featurizer.transform(scaled)
+        return self.featurizer.transform(scaled) if self.featurizer else scaled
 
 
 # Holds one SGDRegressor for each action
@@ -79,148 +82,139 @@ class Model:
     def __init__(self, env, feature_transformer):
         self.env = env
         self.models = []
+        self.neg_value = -1000
         self.feature_transformer = feature_transformer
         for i in range(env.action_space.n):
-            model = SGDRegressor(feature_transformer.dimensions)
-            self.models.append(model)
+            self.models.append(SGDRegressor(feature_transformer.dimensions))
 
     def predict(self, s, legal_actions=None):
         X = self.feature_transformer.transform(np.atleast_2d(s))
-        return np.array([m.predict(X)[0] for m in self.models]) if legal_actions == None \
-            else np.array([m.predict(X)[0] for (i, m) in enumerate(self.models) if i in legal_actions])
+        predictions = np.array(
+            [m.predict(X)[0] if (legal_actions is None or i in legal_actions) else self.neg_value for (i, m)
+             in enumerate(self.models)])
+        sum_predictions = sum([abs(prediction) for prediction in predictions])
+        return [prediction / sum_predictions for prediction in predictions]
 
-    def update(self, s, a, G):
+    def update(self, s, a, q_value):
         X = self.feature_transformer.transform(np.atleast_2d(s))
-        self.models[a].partial_fit(X, [G])
-
-    def getLegalActions(self, currentState):
-        '''
-        Calculate and return allowable action set
-        Output: List of indices of allowable actions
-        '''
-        energy_level = currentState[2]
-        lower_bound = max(env_options.E_min - energy_level, -env_options.P_cap)
-        upper_bound = min(env_options.E_max - energy_level, env_options.P_cap)
-
-        max_bin = int(np.digitize(upper_bound, env_options.actions, right=True))
-        min_bin = int(np.digitize(lower_bound, env_options.actions, right=True))
-
-        legal_actions = []
-        for k in range(min_bin, max_bin):
-            legal_actions.append(k)
-        return legal_actions
+        self.models[a].partial_fit(X, [q_value])
 
     def sample_action(self, s, eps):
-        if np.random.random() < eps:
-            return self.env.action_space.sample()
+        p = r.uniform(0, 1)
+        if p < eps:
+            action_index = self.env.action_space.sample(self.env.current_state)
         else:
-            return np.argmax(self.predict(s, self.getLegalActions(
+            action_index = np.argmax(self.predict(s, self.env.action_space.get_legal_actions(
                 self.env.current_state))) if env_options.use_legal_actions else np.argmax(self.predict(s))
+        return action_index
 
 
 def play_one(env, model, eps, gamma):
-    observation = env.reset()
+    state = env.reset()
     done = False
-    totalreward = 0
+    total_reward = 0
     iters = 0
     number_of_hours_lasted = 0
     while not done and iters < 2000:
         # if we reach 2000, just quit, don't want this going forever
         # the 200 limit seems a bit early
-        action = model.sample_action(observation, eps)
-        prev_observation = observation
-        observation, reward, done, info = env.step(action)
+        action_index = model.sample_action(state, eps)
+        cached_current_state = state
+        state, reward, done, info = env.step(action_index)
         if done:
             reward = -1000
-            G = reward
+            q_value = reward
         else:
-            next = model.predict(observation)
-            assert (len(next.shape) == 1)
-            G = reward + gamma * np.max(next)
-        model.update(prev_observation, action, G)
+            future_rewards = model.predict(state)
+            q_value = reward + gamma * max(future_rewards)
+        model.update(cached_current_state, action_index, q_value)
 
         if reward != -1000:  # if we changed the reward to -200
-            totalreward += reward
+            total_reward += reward
         iters += 1
         number_of_hours_lasted += 1
-    return totalreward, number_of_hours_lasted
+    avg_reward = total_reward / number_of_hours_lasted
+    return avg_reward, number_of_hours_lasted
 
 
-def plot_savings(action_list, grid_list, solar_list, netload_list, load_list, energy_list):
+def plot_savings(action_list, grid_list, solar_list, netload_list, load_list, energy_list, price_list):
     plt.plot(action_list, label='action')
     plt.plot(grid_list, label='grid load')
     plt.plot(solar_list, label='solar power')
-    # plt.plot(netload_list, label = 'net load')
+    plt.plot(netload_list, label='net load')
     plt.plot(load_list, label='household load')
-    # plt.plot(energy_list, label = 'battery energy')
+    plt.plot(energy_list, label='battery energy')
+    plt.plot(price_list, label='price list')
     plt.xlabel('hours')
+    plt.legend(loc='best')
     plt.show()
 
 
 def get_savings(env, model, plot=False):
-    savings = 0.0
-    done = False
     observation = env.reset()
-    action_list = []
-    grid_list = []
-    solar_list = []
-    netload_list = []
-    load_list = []
-    energy_list = []
-    price_list = []
+    grid_list = [[] for _ in range(env.day_chunk)]
+    action_list = [[] for _ in range(env.day_chunk)]
+    solar_list = [[] for _ in range(env.day_chunk)]
+    netload_list = [[] for _ in range(env.day_chunk)]
+    load_list = [[] for _ in range(env.day_chunk)]
+    energy_list = [[] for _ in range(env.day_chunk)]
     while env.day_number < (env.day_chunk - 1):
-        action = model.sample_action(observation, 0)
+        action_index = model.sample_action(observation, 0)
         prev_observation = observation
-        observation, reward, done, info = env.step(action)
+        observation, reward, done, info = env.step(action_index)
         if done:
             break
-        P_grid = env.get_p_grid(prev_observation, action)
-        action_list.append(env_options.actions[action])
-        grid_list.append(P_grid)
-        load_list.append(prev_observation[1])
-        solar_list.append(prev_observation[0])
-        energy_list.append(prev_observation[2])
-        netload_list.append(prev_observation[1] - prev_observation[0])
-        price_list.append(prev_observation[3])
-    agent_bill = sum([a * b for a, b in zip(price_list, grid_list)])
-    base_bill = sum([max(0, a * b) for a, b in zip(price_list, netload_list)])
-    savings = (base_bill - agent_bill) / base_bill
-    print savings
-    if (plot):
-        return plot_savings(action_list, grid_list, solar_list, netload_list, load_list, energy_list)
-        return savings
+        p_grid = env.get_p_grid(prev_observation, action_index)
+        grid_list[env.day_number - 1].append(p_grid)
+        action_list[env.day_number - 1].append(env.action_space.actions[action_index])
+        load_list[env.day_number - 1].append(prev_observation[1])
+        solar_list[env.day_number - 1].append(prev_observation[0])
+        energy_list[env.day_number - 1].append(prev_observation[2])
+        netload_list[env.day_number - 1].append(prev_observation[1] - prev_observation[0])
+    max_savings = -1000
+    best_day = -1
+    for day in range(env.day_chunk):
+        agent_bill = sum([a * b for a, b in zip(env.price_scheme, grid_list[day])])
+        base_bill = sum([max(0, a * b) for a, b in zip(env.price_scheme, netload_list[day])])
+        savings = ((base_bill - agent_bill) * 100) / max(1, base_bill)
+        if savings > max_savings:
+            max_savings = savings
+            best_day = day
+    if plot and len(action_list[best_day]) >= 24:
+        plot_savings(action_list[best_day], grid_list[best_day], solar_list[best_day], netload_list[best_day],
+                     load_list[best_day], energy_list[best_day], map(lambda x: x*50, env.price_scheme))
+    return max_savings
 
 
 env_options = getDefaultObject()
 
 
 def main():
+    r.seed(int(time.time()))
     env = Environment()
     ft = FeatureTransformer(env)
     model = Model(env, ft)
-    gamma = 0.99
     N = 1000
-    totalrewards = np.empty(N)
+    total_rewards = np.empty(N)
     number_of_hours_lasted_lst = np.empty(N)
     savings = []
     for n in range(N):
-        eps = 1.0 / np.sqrt(n + 1)
-        print 'episode number : ', n
-        totalreward, number_of_hours_lasted = play_one(env, model, eps, gamma)
-        totalrewards[n], number_of_hours_lasted_lst[n] = totalreward, number_of_hours_lasted
+        eps = min(0.1, 1.0 / np.sqrt(n + 1))
+        total_reward, number_of_hours_lasted = play_one(env, model, eps, env.env_options.gamma)
+        total_rewards[n], number_of_hours_lasted_lst[n] = total_reward, number_of_hours_lasted
         if n > 0 and n % 50 == 0:
-            savings.append(get_savings(env, model, False))
-        if n > 0 and n % 10 == 0:
-            print 'plotting savings after ', n, ' iterations'
-            get_savings(env, model, True)
+            print('The best day for the model: ', savings.append(get_savings(env, model, True)))
+        if n > 0 and n % 50 == 0:
+            print('plotting savings after ', n, ' iterations')
+            get_savings(env, model, False)
     if n % 100 == 0:
-        print("episode:", n, "total reward:", totalreward, "eps:", eps, "avg reward (last 100):",
-              totalrewards[max(0, n - 100):(n + 1)].mean())
-    print("avg reward for last 100 episodes:", totalrewards[-100:].mean())
+        print("episode:", n, "total reward:", total_reward, "eps:", eps, "avg reward (last 100):",
+              total_rewards[max(0, n - 100):(n + 1)].mean())
+    print("avg reward for last 100 episodes:", total_rewards[-100:].mean())
     print("avg number of hours lasted for last 100 episodes:", number_of_hours_lasted_lst[-100:].mean())
-    print("total steps:", totalrewards.sum())
+    print("total steps:", total_rewards.sum())
 
-    plt.plot(totalrewards)
+    plt.plot(total_rewards)
     plt.title("Rewards")
     plt.show()
 
