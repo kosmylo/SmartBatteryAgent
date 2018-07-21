@@ -29,6 +29,7 @@ class Environment:
         self.day_number = 0
         self.time_step = 0
         self.action_space = Environment.ActionSpace(Environment.env_options.actions)
+        self.learning_rate = 0.2  # importance to new and old Q values
 
     class ActionSpace:
 
@@ -37,10 +38,10 @@ class Environment:
             self.actions = actions
 
         def sample(self, current_state):
-            legal_actions = self.get_legal_actions(current_state)
+            legal_actions = self.get_legal_action_indices(current_state)
             return r.choice(legal_actions) if legal_actions else self.actions.index(r.choice(self.actions))
 
-        def get_legal_actions(self, current_state):
+        def get_legal_action_indices(self, current_state):
             '''
                 Calculate and return allowable action set
                 Output: List of indices of allowable actions
@@ -52,12 +53,12 @@ class Environment:
             max_bin = int(np.digitize(upper_bound, Environment.env_options.actions, right=True))
             min_bin = int(np.digitize(lower_bound, Environment.env_options.actions, right=True))
 
-            legal_actions = []
+            legal_action_indices = []
             for k in range(min_bin, max_bin+1):
                 if self.is_action_legal(current_state, self.actions[k]):
-                    legal_actions.append(k)
+                    legal_action_indices.append(k)
 
-            return legal_actions
+            return legal_action_indices
 
         @staticmethod
         def is_action_legal(current_state, action):
@@ -80,7 +81,8 @@ class Environment:
         self.day_number = 0
         return initial_state
 
-    def sample(self):
+    @staticmethod
+    def sample():
         solar_sample = np.random.uniform(low=0, high=6)
         load_sample = np.random.uniform(low=2.0, high=4.8)
         energy_sample = np.random.uniform(low=1.7, high=6.0)
@@ -114,6 +116,16 @@ class Environment:
             self.day_number = 0
         self.current_state = next_state
         return next_state, reward, done, info
+
+    def get_q_value(self, a, s, reward, q_max_next_state):
+        x = self.feature_transformer.transform(np.atleast_2d(s))
+        q_old = self.models[a].predict(x)
+        q_new = (1 - self.learning_rate) * q_old + self.learning_rate * (reward + self.env_options.gamma *
+                                                                         q_max_next_state)
+        #  starting gamma out with a lower value and increasing as the model starts to learn
+        self.env_options.gamma += 0.0001
+        self.env_options.gamma = min(0.8, self.env_options.gamma)
+        return q_new
 
     def get_next_state(self, day_number, time_step, state_k, action_k):
 

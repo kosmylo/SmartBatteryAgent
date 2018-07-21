@@ -13,7 +13,7 @@ class EnvironmentOptions:
             the environment uniform, like other openai-gym environments
 		'''
         self.eta = eta  # battery efficiency
-        self.gamma = gamma  # kya hain ?
+        self.gamma = gamma  # discount factor, importance given to future Q value predicted by the model
         self.start = start  # starting index in training files
         self.day_chunk = day_chunk  # no of days(elements) to consider in the data files
         self.total_years = total_years  # how many times do we want to repeat over the data
@@ -41,7 +41,7 @@ def getDefaultObject():
         #price = [.040,.040,.080,.080,.120,.240,.120,.040,.040,.040,.040,.080,.120,.080,.120,.040,.040,.120,.120,.040,.040,.040,.040,.040]
         #price = [.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.080, .080,.120,.120,.040,.040,.040]
 	'''
-    gamma = 0.6
+    gamma = 0.4
     eta = 0.9
     day_chunk = 30
     total_years = 2000
