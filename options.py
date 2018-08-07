@@ -4,8 +4,7 @@ import numpy as np
 class EnvironmentOptions:
 
     def __init__(self, eta, gamma, start, day_chunk, total_years, price_scheme, look_ahead, E_cap, P_cap, E_init,
-                 epsilon, \
-                 actions, solar_data, load_data, use_legal_actions):
+                 epsilon, actions, solar_data, load_data, learning_rate):
         '''
             options class from where environment get's all it's parameters.
             can be custom created or a default veriosn can also be loaded.
@@ -26,13 +25,13 @@ class EnvironmentOptions:
         self.look_ahead = look_ahead  # how many steps in time when we want to look ahead
         self.solar_data = solar_data  # solar data path file
         self.load_data = load_data  # load data path file
-        self.use_legal_actions = use_legal_actions  # find out if an action is feasible to be taken
         self.E_max = E_cap  # maximum energy cap of the battery
         self.E_min = (1 - 0.8) * self.E_max  # minimum energy cap of the battery
         self.E_init = 0.3 * self.E_max  # initial starting capacity of the battery
+        self.learning_rate = learning_rate  # importance to new and old Q values
 
 
-def getDefaultObject():
+def get_default_object():
     '''
         get a default object from here with default variable values
         some examples of price schemes
@@ -41,9 +40,9 @@ def getDefaultObject():
         #price = [.040,.040,.080,.080,.120,.240,.120,.040,.040,.040,.040,.080,.120,.080,.120,.040,.040,.120,.120,.040,.040,.040,.040,.040]
         #price = [.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.040,.080, .080,.120,.120,.040,.040,.040]
 	'''
-    gamma = 0.4
+    gamma = 0.2
     eta = 0.9
-    day_chunk = 30
+    day_chunk = 1
     total_years = 2000
     e_cap = 6.0
     p_cap = 3.0
@@ -53,10 +52,9 @@ def getDefaultObject():
     look_ahead = 1
     solar_data = './Data/solar_double.csv'
     load_data = './Data/load_data_peak6.csv'
-    start = 0
+    start = 15
     price_scheme = [.040, .040, .040, .040, .040, .040, .080, .080, .080, .080, .040, .040, .080, .080, .080, .040,
                     .040, .120, .120, .040, .040, .040, .040, .040]
-    use_legal_actions = True
+    learning_rate = 0.1
     return EnvironmentOptions(eta, gamma, start, day_chunk, total_years, price_scheme, look_ahead, e_cap, p_cap, e_init,
-                              epsilon, \
-                              actions, solar_data, load_data, use_legal_actions)
+                              epsilon, actions, solar_data, load_data, learning_rate)

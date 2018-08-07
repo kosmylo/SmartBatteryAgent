@@ -3,7 +3,7 @@ import random as r
 import numpy as np
 import pandas as pd
 
-from options import getDefaultObject
+from options import get_default_object
 
 debug = not True
 
@@ -12,30 +12,31 @@ class Environment:
     '''
         state = [solar, load, energy_level, price, time_step]
     '''
-    env_options = getDefaultObject()
+    env_options = None
 
-    def __init__(self):
-        self.eta = Environment.env_options.eta  # (battery efficiency)
-        self.Gamma = Environment.env_options.gamma
-        self.start = Environment.env_options.start  # pick season
-        self.day_chunk = Environment.env_options.day_chunk
-        self.training_time = Environment.env_options.total_years
-        self.price_scheme = Environment.env_options.price_scheme
-        self.df_solar = pd.read_csv(Environment.env_options.solar_data)
-        self.df_solar = self.df_solar[self.start: self.start + self.day_chunk]
-        self.df_load = pd.read_csv(Environment.env_options.load_data)
-        self.df_load = self.df_load[self.start: self.start + self.day_chunk]
+    def __init__(self, env_options):
+        self.env_options = env_options
+        self.eta = self.env_options.eta  # (battery efficiency)
+        self.Gamma = self.env_options.gamma
+        self.start = self.env_options.start  # pick season
+        self.day_chunk = self.env_options.day_chunk
+        self.training_time = self.env_options.total_years
+        self.price_scheme = self.env_options.price_scheme
+        self.df_solar = pd.read_csv(self.env_options.solar_data)
+        self.df_solar = self.df_solar[self.start: self.start + self.day_chunk].reset_index()
+        self.df_load = pd.read_csv(self.env_options.load_data)
+        self.df_load = self.df_load[self.start: self.start + self.day_chunk].reset_index()
         self.current_state = None
         self.day_number = 0
         self.time_step = 0
-        self.action_space = Environment.ActionSpace(Environment.env_options.actions)
-        self.learning_rate = 0.2  # importance to new and old Q values
+        self.action_space = Environment.ActionSpace(self.env_options)
 
     class ActionSpace:
 
-        def __init__(self, actions):
-            self.n = len(actions)
-            self.actions = actions
+        def __init__(self, env_options):
+            self.env_options = env_options
+            self.actions = self.env_options.actions
+            self.n = len(self.actions)
 
         def sample(self, current_state):
             legal_actions = self.get_legal_action_indices(current_state)
@@ -46,39 +47,35 @@ class Environment:
                 Calculate and return allowable action set
                 Output: List of indices of allowable actions
             '''
-            energy_level = current_state[2]
-            lower_bound = max(Environment.env_options.E_min - energy_level, -Environment.env_options.P_cap)
-            upper_bound = min(Environment.env_options.E_max - energy_level, Environment.env_options.P_cap)
-
-            max_bin = int(np.digitize(upper_bound, Environment.env_options.actions, right=True))
-            min_bin = int(np.digitize(lower_bound, Environment.env_options.actions, right=True))
 
             legal_action_indices = []
-            for k in range(min_bin, max_bin+1):
+            for k in range(len(self.actions)):
                 if self.is_action_legal(current_state, self.actions[k]):
                     legal_action_indices.append(k)
 
             return legal_action_indices
 
-        @staticmethod
-        def is_action_legal(current_state, action):
+        def is_action_legal(self, current_state, action):
             current_solar = current_state[0]
             current_load = current_state[1]
-            current_netload = current_load - current_solar
+            current_net_load = current_load - current_solar
 
             if action >= 0:
                 p_charge, p_discharge = action, 0.0
             else:
                 p_charge, p_discharge = 0.0, action
 
-            p_grid = current_netload + p_charge + p_discharge
-            return p_grid >= 0
+            p_grid = current_net_load + p_charge + p_discharge
+            e_next = current_state[2] + self.env_options.eta * p_charge + p_discharge
+            return (p_grid >= 0 or p_grid < 0) and self.env_options.E_min <= e_next <= self.env_options.E_max
 
-    def reset(self):
-        initial_state = self.get_initial_state(0, Environment.env_options.E_init)
+    def reset(self, reset_day=False):
+        initial_state = self.get_initial_state(0, self.env_options.E_init
+        if self.current_state is None else self.current_state[2])
         self.current_state = initial_state
         self.time_step = 0
-        self.day_number = 0
+        if reset_day:
+            self.day_number = 0
         return initial_state
 
     @staticmethod
@@ -91,21 +88,21 @@ class Environment:
         sample_state = [solar_sample, load_sample, energy_sample, price_sample, time_step]
         return sample_state
 
-    def get_initial_state(self, day_number, E_init):
+    def get_initial_state(self, day_number, e_init):
         '''
             Set's the initialState (0th hour) for day_number.
             day_number
         '''
         solar = float(self.df_solar[self.get_key(0)][day_number])
         load = float(self.df_load[self.get_key(0)][day_number])
-        energy_level = E_init
+        energy_level = e_init
         price = self.get_price(0)
 
         return [solar, load, energy_level, price, 0]
 
     def step(self, action_index):
         assert (action_index is not None)
-        action = Environment.env_options.actions[action_index]
+        action = self.env_options.actions[action_index]
         next_state, reward, done, info = self.get_next_state(self.day_number, self.time_step, self.current_state,
                                                              action)
         self.time_step += 1
@@ -116,16 +113,6 @@ class Environment:
             self.day_number = 0
         self.current_state = next_state
         return next_state, reward, done, info
-
-    def get_q_value(self, a, s, reward, q_max_next_state):
-        x = self.feature_transformer.transform(np.atleast_2d(s))
-        q_old = self.models[a].predict(x)
-        q_new = (1 - self.learning_rate) * q_old + self.learning_rate * (reward + self.env_options.gamma *
-                                                                         q_max_next_state)
-        #  starting gamma out with a lower value and increasing as the model starts to learn
-        self.env_options.gamma += 0.0001
-        self.env_options.gamma = min(0.8, self.env_options.gamma)
-        return q_new
 
     def get_next_state(self, day_number, time_step, state_k, action_k):
 
@@ -140,21 +127,25 @@ class Environment:
             p_charge, p_discharge = 0.0, action_k
         e_next = current_energy + self.eta * p_charge + p_discharge
         p_grid = current_netload + p_charge + p_discharge
-        is_valid = (p_grid >= 0)
-        reward = -p_grid * self.get_price(time_step)
+        is_valid = True
+        reward = self.get_reward(p_grid, time_step)
 
         if not is_valid:
-            reward = -1000
+            reward = -100
             next_state = None
         else:
             next_state = [self.get_solar(day_number, time_step + 1), self.get_load(day_number, time_step + 1), e_next,
                           self.get_price(time_step + 1), time_step + 1]
         return next_state, reward, (not is_valid), 'info is not supported'
 
+    def get_reward(self, p_grid, time_step):
+        return 1.0 / (p_grid * self.get_price(time_step))
+
     def get_price(self, time_step):
         return self.price_scheme[time_step % 24]
 
-    def get_key(self, time_step):
+    @staticmethod
+    def get_key(time_step):
         time_step = str(time_step)
         return time_step + ':00'
 
@@ -174,10 +165,9 @@ class Environment:
         time_step = self.get_key(time_step)
         return self.df_load[time_step][day_number]
 
-    @staticmethod
-    def get_p_grid(state, action):
-        assert (action is not None)
-        action = Environment.env_options.actions[action]
+    def get_pgrid(self, state, action_index):
+        assert (action_index is not None)
+        action = self.env_options.actions[action_index]
         if action >= 0:
             p_charge, p_discharge = action, 0.0
         else:
@@ -192,4 +182,3 @@ if __name__ == '__main__':
     '''
     environment = Environment()
     environment.reset()
-    print environment.step(Environment.env_options.actions[0])
