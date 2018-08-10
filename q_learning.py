@@ -192,6 +192,10 @@ class QLearning:
 
 
 def plot_a_day(action_list, grid_list, solar_list, load_list, energy_list, price_list, net_load_list):
+    if DEBUGGING >= IMPORTANT:
+        for i, action in enumerate(action_list):
+            print(action, price_list[i], )
+        print('\n')
     plt.plot(action_list, label='action')
     plt.plot(grid_list, label='from grid')
     plt.plot(solar_list, label='solar power')

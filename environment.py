@@ -143,10 +143,9 @@ class Environment:
 
     def get_non_myopic_reward_function(self, p_grid, time_step):
         current_price = self.get_price(time_step)
-        reward = -self.get_price(time_step)
-        for price in [self.get_price(time) for time in range(time_step, 24)]:
-            if price > current_price:
-                reward += (price - current_price)
+        reward = -current_price
+        for price in [self.get_price(time) for time in range(time_step+1, 24)]:
+            reward += (price - current_price)
         return reward * p_grid
 
     def get_price(self, time_step):
