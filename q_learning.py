@@ -200,7 +200,7 @@ def plot_a_day(action_list, grid_list, solar_list, load_list, energy_list, price
     plt.plot(grid_list, label='from grid')
     plt.plot(solar_list, label='solar power')
     plt.plot(load_list, label='required load')
-    plt.plot(energy_list, label='stored energy')
+    # plt.plot(energy_list, label='stored energy')
     plt.plot(price_list, label='unit price')
     plt.plot(net_load_list, label='net load list')
     plt.xlabel('hours')
@@ -320,7 +320,7 @@ def main():
         total_rewards += rewards_per_episode
         number_of_hours_lasted_lst[n] = number_of_hours_lasted
         avg_rewards_per_episode_per_iteration.append(average_reward_per_episode)
-        if DEBUG_LEVEL >= IMPORTANT and n > 0 and n % 50 == 0:
+        if DEBUG_LEVEL >= IMPORTANT and n > 0 and n % 500 == 0:
             if DEBUG_LEVEL >= VERBOSE:
                 test_model(savings, average_reward_per_episode, total_rewards, eps, model, env, n)
             print('average reward per episode', average_reward_per_episode, 'number of hours lasted',

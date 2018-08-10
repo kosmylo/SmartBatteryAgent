@@ -42,7 +42,7 @@ def get_default_object():
 	'''
     gamma = 0.4
     eta = 0.9
-    day_chunk = 1
+    day_chunk = 10
     total_years = 2000
     e_cap = 6.0
     p_cap = 3.0
@@ -52,7 +52,7 @@ def get_default_object():
     look_ahead = 1
     solar_data = './Data/solar_double.csv'
     load_data = './Data/load_data_peak6.csv'
-    start = 25
+    start = 10
     price_scheme = [.040, .040, .040, .040, .040, .040, .080, .080, .080, .080, .040, .040, .080, .080, .080, .040,
                     .040, .120, .120, .040, .040, .040, .040, .040]
     learning_rate = 0.1
