@@ -23,6 +23,12 @@ from options import get_default_object
 # sudo pip install -U future
 # Inspired by https://github.com/dennybritz/reinforcement-learning
 
+DEBUGGING = 3
+VERBOSE = 2
+NONE = 0
+IMPORTANT = 1
+DEBUG_LEVEL = VERBOSE
+
 
 def plot_running_avg(total_rewards):
     N = len(total_rewards)
@@ -105,8 +111,7 @@ class Model:
             [m.predict(x)[0] if (legal_actions is None or i in legal_actions) else self.neg_value for (i,
                                                                                                        m)
              in enumerate(self.models)])
-        sum_predictions = sum([abs(prediction) for prediction in predictions])
-        return [prediction / sum_predictions for prediction in predictions]
+        return [prediction for prediction in predictions]
 
     def get_qvalue(self, state, action_index):
         return self.models[action_index].predict(self.feature_transformer.transform(np.atleast_2d(state)))
@@ -114,10 +119,6 @@ class Model:
     def update(self, state, action_index, qvalue):
         x = self.feature_transformer.transform(np.atleast_2d(state))
         self.models[action_index].partial_fit(x, qvalue)
-
-    def print_model_weights(self):
-        for model in self.models:
-            print(model.w)
 
 
 class QLearning:
@@ -148,6 +149,8 @@ class QLearning:
         return action_index
 
     def get_new_qvalue(self, q_old, reward, q_max_next_state):
+        if DEBUG_LEVEL >= DEBUGGING:
+            print('reward', reward, 'q_max_next_state', self.env_options.gamma * q_max_next_state)
         q_new = (1 - self.env_options.learning_rate) * q_old + self.env_options.learning_rate * (reward +
                                                                                                  self.env_options.gamma *
                                                                                                  q_max_next_state)
@@ -230,7 +233,8 @@ def test_model_actual(env, model, plot=False):
             break
         pgrid = env.get_pgrid(prev_state, action_index)
         grid_list[env.day_number - 1].append(pgrid)
-        print('action taken by the agent:', env.action_space.actions[action_index])
+        if DEBUG_LEVEL >= DEBUGGING:
+            print('action taken by the agent:', env.action_space.actions[action_index])
         action_list[env.day_number - 1].append(env.action_space.actions[action_index])
         load_list[env.day_number - 1].append(prev_state[1])
         solar_list[env.day_number - 1].append(prev_state[0])
@@ -247,9 +251,9 @@ def test_model_actual(env, model, plot=False):
         agent_bill = sum([a * b for a, b in zip(env.price_scheme, grid_list[day])])
         base_bill = sum([max(0, a * b) for a, b in zip(env.price_scheme, net_load_list[day])])
         savings = ((base_bill - agent_bill) * 100) / max(1, base_bill)
-        if savings < 0:
-            # plot_a_day(action_list[day], grid_list[day], solar_list[day],
-            #            load_list[day], energy_list[day], map(lambda x: x * 50, env.price_scheme), net_load_list[day])
+        if savings < 0 and DEBUG_LEVEL >= DEBUGGING:
+            plot_a_day(action_list[day], grid_list[day], solar_list[day],
+                       load_list[day], energy_list[day], map(lambda x: x * 50, env.price_scheme), net_load_list[day])
             negative_rewards_count += 1
         if savings > max_savings:
             max_savings = savings
@@ -312,20 +316,20 @@ def main():
         total_rewards += rewards_per_episode
         number_of_hours_lasted_lst[n] = number_of_hours_lasted
         avg_rewards_per_episode_per_iteration.append(average_reward_per_episode)
-        if n > 0 and n % 50 == 0:
-            test_model(savings, average_reward_per_episode, total_rewards, eps, model, env, n)
-            # plot_model_savings(total_rewards, savings, number_of_hours_lasted)
-            # model.print_model_weights()
+        if DEBUG_LEVEL >= IMPORTANT and n > 0 and n % 50 == 0:
+            if DEBUG_LEVEL >= VERBOSE:
+                test_model(savings, average_reward_per_episode, total_rewards, eps, model, env, n)
             print('average reward per episode', average_reward_per_episode, 'number of hours lasted',
                   number_of_hours_lasted)
             plot(avg_rewards_per_episode_per_iteration, 'rewards', 'iteration', 'avg rewards per episode per iteration')
 
-    total_rewards = np.array(total_rewards)
-    print("avg reward for last ", min(100, len(total_rewards)), " episodes:",
-          total_rewards[-min(100, len(total_rewards)):].mean())
-    print("avg number of hours lasted for last ", min(100, len(total_rewards)), " episodes:",
-          number_of_hours_lasted_lst[-min(100, len(total_rewards)):].mean())
-    print("total steps:", total_rewards.sum())
+    if DEBUG_LEVEL >= IMPORTANT:
+        total_rewards = np.array(total_rewards)
+        print("avg reward for last ", min(100, len(total_rewards)), " episodes:",
+              total_rewards[-min(100, len(total_rewards)):].mean())
+        print("avg number of hours lasted for last ", min(100, len(total_rewards)), " episodes:",
+              number_of_hours_lasted_lst[-min(100, len(total_rewards)):].mean())
+        print("total steps:", total_rewards.sum())
 
 
 if __name__ == '__main__':

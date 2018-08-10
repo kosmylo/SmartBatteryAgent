@@ -40,7 +40,7 @@ class Environment:
 
         def sample(self, current_state):
             legal_actions = self.get_legal_action_indices(current_state)
-            return r.choice(legal_actions) if legal_actions else self.actions.index(r.choice(self.actions))
+            return r.choice(legal_actions)
 
         def get_legal_action_indices(self, current_state):
             '''
@@ -128,7 +128,7 @@ class Environment:
         e_next = current_energy + self.eta * p_charge + p_discharge
         p_grid = current_netload + p_charge + p_discharge
         is_valid = True
-        reward = self.get_reward(p_grid, time_step)
+        reward = self.get_non_myopic_reward_function(p_grid, time_step)
 
         if not is_valid:
             reward = -100
@@ -139,7 +139,15 @@ class Environment:
         return next_state, reward, (not is_valid), 'info is not supported'
 
     def get_reward(self, p_grid, time_step):
-        return 1.0 / (p_grid * self.get_price(time_step))
+        return -p_grid * self.get_price(time_step)
+
+    def get_non_myopic_reward_function(self, p_grid, time_step):
+        current_price = self.get_price(time_step)
+        reward = -self.get_price(time_step)
+        for price in [self.get_price(time) for time in range(time_step, 24)]:
+            if price > current_price:
+                reward += (price - current_price)
+        return reward * p_grid
 
     def get_price(self, time_step):
         return self.price_scheme[time_step % 24]
